@@ -5,7 +5,6 @@ Justin Lanan & Steven Shi
 Group 6 - Final Project
 Software Carpentry
 Due: 12/19/2022
-
 Main protocol does...
 !!!
     Important Detail:
@@ -20,7 +19,8 @@ import shutil
 import random
 import cv2
 import os
-
+import numpy as np
+import glob
 
 class Board:
     def __init__(self, hex_diag, width, name, organisms):
@@ -554,6 +554,17 @@ def run_simulation(t_max, hex_cnt, width, organisms, img_path):
             board = Board(hex_cnt, width, img_name, [*ciliates, amoeba])
         board.save()
 
+def make_video(image_path,fps):
+    img_array = []
+    for filename in glob.glob(image_path):
+        img = cv2.imread(filename)
+        height,width,layers = img.shape
+        size = (width,height)
+        img_array.append(img)
+    out = cv2.VideoWritter('final_project.avi'.cv2.VideoWriter_fourcc(*'DIVX'),fps,size)
+    for i in range(len(img_array)):
+        out.write(img_array[i])
+    out.release()
 
 if __name__ == "__main__":
     # Define the board by entering number of hexagons across the diagonal and the pixel width of each hexagon.
@@ -575,6 +586,8 @@ if __name__ == "__main__":
     collection_of_organisms = [*initialize_4_ciliates(blank_board), initialize_amoeba(amoeba_radius, blank_board)]
     # Run simulation over time steps
     run_simulation(max_time_steps, hex_count, pixel_width_of_hex, collection_of_organisms, image_path)
+    fps = 15
+    make_video(image_path,fps)
 
     
     
