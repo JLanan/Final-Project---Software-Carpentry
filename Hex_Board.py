@@ -553,7 +553,7 @@ def run_simulation(t_max, hex_cnt, width, organisms, img_path):
             ciliates[i] = Ciliate(ciliates[i].rgb, new_hxhy, board)
             board = Board(hex_cnt, width, img_name, [*ciliates, amoeba])
         board.save()
-
+###
 def make_video(image_path,fps):
     img_array = []
     for filename in glob.glob(image_path):
