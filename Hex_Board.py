@@ -17,10 +17,8 @@ import math
 import os
 import shutil
 import random
-import cv2
-import os
-import numpy as np
-import glob
+import moviepy.video.io.ImageSequenceClip as MakeClip
+
 
 class Board:
     def __init__(self, hex_diag, width, name, organisms):
@@ -494,10 +492,10 @@ def initialize_4_ciliates(brd):
     # Lay 4 ciliates, one in each corner, start with defined colors and center points
     rgb1, rgb2, rgb3, rgb4 = (0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255)
     dist = 5
-    hxhy1_o = (dist, 0)                                       # upper left
-    hxhy2_o = (brd.hex_diag - dist, brd.hy_mins[-1 * dist - dist])          # upper right
-    hxhy3_o = (dist, brd.hy_maxes[dist + dist])                         # lower left
-    hxhy4_o = (brd.hex_diag - dist, 0)                        # lower right
+    hxhy1_o = (dist, 0)  # upper left
+    hxhy2_o = (brd.hex_diag - dist, brd.hy_mins[-1 * dist - dist])  # upper right
+    hxhy3_o = (dist, brd.hy_maxes[dist + dist])  # lower left
+    hxhy4_o = (brd.hex_diag - dist, 0)  # lower right
     # Get neighbors of the center points
     neighs1, neighs2, neighs3, neighs4 = (
         Neighbors2Hex(hxhy1_o, brd), Neighbors2Hex(hxhy2_o, brd),
@@ -553,27 +551,25 @@ def run_simulation(t_max, hex_cnt, width, organisms, img_path):
             ciliates[i] = Ciliate(ciliates[i].rgb, new_hxhy, board)
             board = Board(hex_cnt, width, img_name, [*ciliates, amoeba])
         board.save()
-###
-def make_video(image_path,fps):
-    img_array = []
-    for filename in glob.glob(image_path):
-        img = cv2.imread(filename)
-        height,width,layers = img.shape
-        size = (width,height)
-        img_array.append(img)
-    out = cv2.VideoWritter('final_project.avi'.cv2.VideoWriter_fourcc(*'DIVX'),fps,size)
-    for i in range(len(img_array)):
-        out.write(img_array[i])
-    out.release()
+
+
+def make_video(img_path, fps):
+    # Compile the images into a video saved to the local directory, not the image path.
+    image_files = [os.path.join(img_path, img) for img in os.listdir(img_path) if img.endswith(".png")]
+    clip = MakeClip.ImageSequenceClip(image_files, fps=fps)
+    clip.write_videofile('simulation_video.mp4')
+    # Delete the image path.
+    shutil.rmtree(image_path)
+
 
 if __name__ == "__main__":
     # Define the board by entering number of hexagons across the diagonal and the pixel width of each hexagon.
     # Knobs: large simulation 120, 36, 10; small simulation 40, 23, 2
-    # Looking good with 50, 23, 4 for medium-sized.
     hex_count = 60
     pixel_width_of_hex = 19
     amoeba_radius = 5
-    max_time_steps = 250
+    # Highest time step allowed is 999.
+    max_time_steps = 999
     image_path = 'D:/SIMULATION PHOTOS/'
 
     # Initialize and save a blank board to a local folder
@@ -586,37 +582,6 @@ if __name__ == "__main__":
     collection_of_organisms = [*initialize_4_ciliates(blank_board), initialize_amoeba(amoeba_radius, blank_board)]
     # Run simulation over time steps
     run_simulation(max_time_steps, hex_count, pixel_width_of_hex, collection_of_organisms, image_path)
-    fps = 15
-    make_video(image_path,fps)
-
-    
-    
-    # another way to make movies
-    # From: https://stackoverflow.com/questions/44947505/how-to-make-a-movie-out-of-images-in-python
-    # import os
-    # import moviepy.video.io.ImageSequenceClip
-    # image_folder='folder_with_images'
-    # fps=1
-    #
-    # image_files = [os.path.join(image_folder,img)
-    #                for img in os.listdir(image_folder)
-    #                if img.endswith(".png")]
-    # clip = moviepy.video.io.ImageSequenceClip.ImageSequenceClip(image_files, fps=fps)
-    # clip.write_videofile('my_video.mp4')
-
-    
-#     # Use OpenCv to combine the images into a movie
-#     image_folder = 'images'
-#     video_name = 'video.avi'
-#     images = [img for img in os.listdirt(image_folder) if img.endswith(".png")]
-#     frame = cv2.imread(os.path.join(image_folder,images[0]))
-#     height,width,layers = frame.shape
-#     Video = cv2.VideoWriter(video_name,0,1,(width,height))
-#     for image in images:
-#         video.write(cv2.imread(os.path.join(image_folder,image)))
-#     cv2. destroyAllWindows()
-#     video.release()
-    
-    
-    # # Delete the image folder once the movie is made and saved elsewhere
-    # shutil.rmtree(image_path)
+    # Create a video of the simulation image results
+    frames_per_second = 8
+    make_video(image_path, frames_per_second)
