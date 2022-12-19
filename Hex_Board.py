@@ -1,15 +1,21 @@
 """
-********************************************************************************
+*******************************************************************************************************
 Justin Lanan & Steven Shi
 "Hexagonal Microbes"
 Group 6 - Final Project
 Software Carpentry
 Due: 12/19/2022
-Main protocol does...
+
+Main protocol starts with the key system adjustment knobs, followed by an initiator for a blank board.
+The hexagonal microbial simulation then runs for the specified time steps. Images are saved out to a
+temporary folder that must be specified. A movie is made of the images and the image folder is deleted.
+
 !!!
-    Important Detail:
+    Important Details: If the knobs are adjusted to make the system too big, then the program can
+                        crash due to memory issues. If the system is too small, then the microbes
+                        cannot be properly initialized. No more than 999 time steps are allowed.
 !!!!
-********************************************************************************
+*******************************************************************************************************
 """
 
 from PIL import Image
@@ -21,7 +27,26 @@ import moviepy.video.io.ImageSequenceClip as MakeClip
 
 
 class Board:
+    """
+    Class object holds information for the board layout. Reinitialized with each time step.
+    """
     def __init__(self, hex_diag, width, name, organisms):
+        """
+        Establishes pertinent self objects for use in the main program.
+
+            **Parameters**
+                hex_diag: int
+                        The user specified number of hexagons across the diagonal of the board
+                width: int
+                        The user specified pixel width of a single hexagon
+                name: str
+                        Current name of the board including file path.
+                organisms: list: Ciliate, Amoeba
+                        List of 4 Ciliate objects followed by 1 Amoeba object for this time step.
+
+            **Returns**
+                No return
+        """
         self.hex_diag, self.width, self.name, self.organisms = hex_diag, width, name, organisms
         self.height = self.get_height()
         self.midpoint = (math.floor(self.hex_diag / 2), 0)
@@ -42,11 +67,33 @@ class Board:
                         self.paint_pixels_of_hex(org.rgb, hxhy)
 
     def get_height(self):
+        """
+        Calculates the pixel height of a single hexagon. Does not round.
+
+            **Parameters**
+                self
+
+            **Returns**
+                height: float
+                    The unrounded pixel height of a single hexagon on the board.
+        """
         # Get hexagon pixel height as float
         height = self.width / 2 * 3 ** 0.5
         return height
 
     def get_pxy_max(self):
+        """
+        Gets the pixel coordinates of the lower right corner of the image.
+
+            **Parameters**
+                self
+
+            **Returns**
+                px_max: int
+                        The max pixel in the +x direction of the image.
+                py_max: int
+                        The max pixel in the +y direction of the image.
+        """
         # Calculate max pixel coordinates on the board via hex coordinate (hex_diag, 0)
         hx, hy = self.hex_diag, 0
         shift_x = math.floor(self.width / 2 + self.width / 2 * (hx * 3 / 2))
@@ -56,6 +103,16 @@ class Board:
         return px_max, py_max
 
     def get_oob(self):
+        """
+        Gets the hexagonal coordinates of the imaginary fence bordering the board.
+
+            **Parameters**
+                self
+
+            **Returns**
+                list: tuple
+                        List of the hexagonal coordinates representing an outer-boundary fence.
+        """
         # Create list of (hx,hy) tuples that define the first layer that is out of bounds
         # Have side boundaries include the corner points
         sides = []
@@ -70,10 +127,33 @@ class Board:
         return [*sides, *top_and_bot]
 
     def blank(self):
+        """
+        Creates a blank board for when this class is first initialized with no organisms on it.
+
+            **Parameters**
+                self
+
+            **Returns**
+                Image object
+                    A white pixel image of size px_max, py_max.
+        """
         # Make white rectangular backdrop
         return Image.new(mode="RGB", size=(self.px_max, self.py_max), color=(255, 255, 255))
 
     def paint_pixels_of_hex(self, rgb, hxhy):
+        """
+        Paints the pixels of a single hexagon on the board.
+
+            **Parameters**
+                self
+                rgb: tuple
+                        Tuple of RGB integers for the hexagon
+                hxhy: tuple
+                        Tuple of the hexagon's hexagonal coordinates on the board.
+
+            **Returns**
+                No return
+        """
         shift_x = math.floor(self.width / 2 + self.width / 2 * (hxhy[0] * 3 / 2))
         shift_y = math.floor(self.height / 2 + self.width / 2 * (hxhy[0] / 2 * 3 ** 0.5 + hxhy[1] * 3 ** 0.5))
         for j, item in enumerate(self.quad_max_xs):
@@ -84,6 +164,15 @@ class Board:
                 self.img.putpixel((shift_x + i, shift_y - j), rgb)
 
     def save(self):
+        """
+        Saves the current board out as .png.
+
+            **Parameters**
+                self
+
+            **Returns**
+                No return
+        """
         # Save out the image to local folder
         if not self.name.endswith(".png"):
             self.name += ".png"
@@ -91,13 +180,40 @@ class Board:
 
 
 class Ciliate:
+    """
+    Class object holds a single ciliate's information at the level of hexagons. Automatically calculates its next move.
+    """
     def __init__(self, rgb, hxhy_list, brd):
+        """
+        Establishes pertinent self objects for use in the main program.
+
+            **Parameters**
+                rgb: tuple
+                        RGB pixel color of the ciliate
+                hxhy_list: list
+                        Current coordinate list of the ciliate
+                brd: Board
+                        Current iteration of the Board
+
+            **Returns**
+                No return
+        """
         self.rgb = rgb
         self.hxhy_list = hxhy_list
         self.brd = brd
         self.moved_hxhy_list = self.random_move()
 
     def random_move(self):
+        """
+        Gets the ciliate's new coordinate list for the next time step via a random but valid move.
+
+            **Parameters**
+                self
+
+            **Returns**
+                hypothetical_new_hxhy_list: list: tuple
+                        List of ciliate's new self coordinates.
+        """
         # 0: forward, 1: backward, 2: rotate +60, 3: rotate -60
         move_type = random.choice([0, 0, 0, 0, 0, 0, 1, 1, 2, 3])
         orientation = self.get_orientation()
@@ -109,6 +225,16 @@ class Ciliate:
             return self.hxhy_list
 
     def get_orientation(self):
+        """
+        Gets the ciliate's bodily orientation as an index.
+
+            **Parameters**
+                self
+
+            **Returns**
+                int
+                    Orientation index from 0 to 5.
+        """
         # Head is 0: upper left, 1: up, 2: upper right, 3: lower right, 4: down, 5: lower left
         if self.hxhy_list[0] == Neighbors2Hex(self.hxhy_list[1], self.brd).up_left:
             return 0
@@ -124,6 +250,20 @@ class Ciliate:
             return 5
 
     def hypothetical_new_hxhy(self, move_type, orientation):
+        """
+        Gets the ciliate's bodily orientation as an index.
+
+            **Parameters**
+                self
+                move_type: int
+                        Integer from 0 to 3 indicating forward, backward, rotate +/-60
+                orientation: int
+                        Orientation index from 0 to 5.
+
+            **Returns**
+                list: tuple
+                        List of hexagonal coordinates laying the new ciliate position
+        """
         # Get vector from middle to head of ciliate
         vector_1to0 = (self.hxhy_list[0][0] - self.hxhy_list[1][0], self.hxhy_list[0][1] - self.hxhy_list[1][1])
         head_will_be_at, mid_will_be_at, tail_will_be_at = (), (), ()
@@ -179,6 +319,17 @@ class Ciliate:
         return [head_will_be_at, mid_will_be_at, tail_will_be_at]
 
     def is_valid_move(self, new_hxhy_list):
+        """
+        Checks if a move will hit another organism or go off the board.
+
+            **Parameters**
+                self
+                new_hxhy_list: list: tuple
+                        The list of hexagonal coordinates for the new ciliate layout
+
+            **Returns**
+                True/False
+        """
         big_list = self.get_list_of_everything_besides_this_ciliate()
         for hxhy in new_hxhy_list:
             if hxhy in big_list:
@@ -186,6 +337,17 @@ class Ciliate:
         return True
 
     def get_list_of_everything_besides_this_ciliate(self):
+        """
+        Helper function to is_valid_move(). Makes one big list containing the outer boundary fence
+        and the organisms besides this ciliate.
+
+            **Parameters**
+                self
+
+            **Returns**
+                big_list_of_hxhy: list: tuple
+                        List of hex coordinates for all organisms (besides this ciliate) and outer boundary fence.
+        """
         big_list_of_hxhy = self.brd.out_of_bounds
         if self.brd.organisms is not None:
             all_organisms = self.brd.organisms
@@ -198,7 +360,24 @@ class Ciliate:
 
 
 class Amoeba:
+    """
+    Class object holds the amoeba's information at the level of hexagons. Automatically calculates its next move.
+    """
     def __init__(self, rgb, hxhy_list, brd):
+        """
+        Establishes pertinent self objects for use by the main program.
+
+            **Parameters**
+                rgb: tuple
+                        RGB pixel color of the amoeba
+                hxhy_list: list
+                        Current coordinate list of the amoeba.
+                brd: Board
+                        Current iteration of the Board
+
+            **Returns**
+                No return
+        """
         self.rgb = rgb
         self.hxhy_list = hxhy_list
         self.brd = brd
@@ -208,6 +387,16 @@ class Amoeba:
         self.moved_hxhy_list = self.random_move()
 
     def get_perimeter(self):
+        """
+        Creates a list of the amoeba's perimeter hexagon coordinates.
+
+            **Parameters**
+                self
+
+            **Returns**
+                perimeter_hxhy_list: list: tuple
+                        List of hexagonal coordinates that have an empty neighbor.
+        """
         perimeter_hxhy_list = []
         for hxhy in self.hxhy_list:
             for neigh_hxhy in Neighbors2Hex(hxhy, self.brd).neighbors:
@@ -216,19 +405,21 @@ class Amoeba:
                     break
         return perimeter_hxhy_list
 
-    def get_fingertips(self):
-        # Any perimeter hexagons that only have one self neighbor are fingertips.
-        fingertips = []
-        for hxhy in self.hxhy_list:
-            neigh_count = 0
-            for neigh_hxhy in Neighbors2Hex(hxhy, self.brd).neighbors:
-                if neigh_hxhy in self.hxhy_list:
-                    neigh_count += 1
-            if neigh_count == 1:
-                fingertips.append(hxhy)
-        return fingertips
-
     def get_fngr_neck_base(self):
+        """
+        Creates a list of the amoeba's fingertip hexagon coordinates.
+
+            **Parameters**
+                self
+
+            **Returns**
+                fingertips: list: tuple
+                        List of hexagonal coordinates that have only one self neighbor.
+                necks: list: tuple
+                        List of hexagonal coordinates that are necks in amoeba appendages.
+                bases: list: tuple
+                        List of hexagonal coordinates that join amoeba appendages to the main body.
+        """
         # Scan perimeter hexagons to see if they are fingertips, neck pieces, or the bases of necks
         fingertips, necks, bases = [], [], []
         for hxhy in self.perimeter_hxhy_list:
@@ -244,6 +435,32 @@ class Amoeba:
         return fingertips, necks, bases
 
     def append_fngr_neck_base(self, hxhy, fingertips, necks, bases, p_neigh_count, b_neigh_count):
+        """
+        Helper function of get_fngr_neck_base(). Appends lists based on neighbor index classifications.
+
+            **Parameters**
+                self
+                hxhy: tuple
+                        Hexagonal coordinate of the amoeba piece of interest
+                fingertips: list
+                        An empty list to be appended to.
+                necks: list
+                        An empty list to be appended to.
+                bases: list
+                        An empty list to be appended to.
+                p_neigh_count: int
+                        The number of neighbors to hxhy that are in the amoeba's perimeter list
+                b_neigh_count: int
+                        The number of neighbors to hxhy that are in the amoeba's internal body space.
+
+            **Returns**
+                fingertips: list: tuple
+                        List of hexagonal coordinates that have only one self neighbor.
+                necks: list: tuple
+                        List of hexagonal coordinates that are necks in amoeba appendages.
+                bases: list: tuple
+                        List of hexagonal coordinates that join amoeba appendages to the main body.
+        """
         # Analyze neighbor counts (peripheral and body) to cover all possible morphologies and append accordingly.
         if p_neigh_count == 1 and b_neigh_count == 0:
             fingertips.append(hxhy)
@@ -278,6 +495,17 @@ class Amoeba:
         return fingertips, necks, bases
 
     def test_is_wart(self, hxhy):
+        """
+        Helper function of append_fngr_neck_base(). Checks if hxhy is a wart case.
+
+            **Parameters**
+                self
+                hxhy: tuple
+                        Hexagonal coordinate of the amoeba piece of interest
+
+            **Returns**
+                True/False
+        """
         # The two neighbors of a wart are right next to each other.
         indexes = []
         for i, neigh_hxhy in enumerate(Neighbors2Hex(hxhy, self.brd).neighbors):
@@ -288,6 +516,17 @@ class Amoeba:
         return False
 
     def test_is_crux_of_y(self, hxhy):
+        """
+        Helper function of append_fngr_neck_base(). Checks if hxhy is a crux case.
+
+            **Parameters**
+                self
+                hxhy: tuple
+                        Hexagonal coordinate of the amoeba piece of interest
+
+            **Returns**
+                True/False
+        """
         # The three neighbors of a Y-crux are all right next to each other.
         indexes = []
         for i, neigh_hxhy in enumerate(Neighbors2Hex(hxhy, self.brd).neighbors):
@@ -301,6 +540,17 @@ class Amoeba:
         return False
 
     def test_is_3_to_1(self, hxhy):
+        """
+        Helper function of append_fngr_neck_base(). Checks if hxhy is a 3_to_1 base case.
+
+            **Parameters**
+                self
+                hxhy: tuple
+                        Hexagonal coordinate of the amoeba piece of interest
+
+            **Returns**
+                True/False
+        """
         # The 4 neighbors of a 3-to-1 base have a -0-1-2-gap-4-gap- pattern. Easier to index the gaps instead.
         indexes = []
         for i, neigh_hxhy in enumerate(Neighbors2Hex(hxhy, self.brd).neighbors):
@@ -311,6 +561,17 @@ class Amoeba:
         return False
 
     def test_is_dog_bone(self, hxhy):
+        """
+        Helper function of append_fngr_neck_base(). Checks if hxhy is a dog bone case.
+
+            **Parameters**
+                self
+                hxhy: tuple
+                        Hexagonal coordinate of the amoeba piece of interest
+
+            **Returns**
+                True/False
+        """
         # The 4 neighbors of a dog bone base have a -0-1-gap-3-4-gap- pattern. Easier to index the gaps instead.
         indexes = []
         for i, neigh_hxhy in enumerate(Neighbors2Hex(hxhy, self.brd).neighbors):
@@ -321,6 +582,16 @@ class Amoeba:
         return False
 
     def get_reduced_perimeter(self):
+        """
+        Helper function of append_fngr_neck_base(). Checks if hxhy is a dog bone case.
+
+            **Parameters**
+                self
+
+            **Returns**
+                reduced_perimeter_hxhy_list: list: tuple
+                        List of amoeba's perimeter hexagons but with narrow necks removed
+        """
         # get perimeter list but with narrow points removed. Leave the fingertips in the list.
         reduced_perimeter_hxhy_list = self.perimeter_hxhy_list.copy()
         for hxhy in self.perimeter_hxhy_list:
@@ -330,6 +601,16 @@ class Amoeba:
         return reduced_perimeter_hxhy_list
 
     def random_move(self):
+        """
+        Gets the amoeba's new coordinate list for the next time step via a random but valid move.
+
+            **Parameters**
+                self
+
+            **Returns**
+                hypothetical_new_hxhy_list: list: tuple
+                        List of amoeba's new self coordinates.
+        """
         is_valid, hex_to_add, hex_to_remove = False, (0, 0), (0, 0)
         while not is_valid:
             # Randomly select from the reduced perimeter list for the move
@@ -350,6 +631,19 @@ class Amoeba:
         return hypothetical_new_hxhy_list
 
     def get_added_hex(self, hxhy):
+        """
+        Helper function to random_move(). Determines the new hexagon to add to the amoeba body.
+        Based on the chosen perimeter hexagon.
+
+            **Parameters**
+                self
+                hxhy: tuple
+                        Amoeba self perimeter hexagon chosen at random.
+
+            **Returns**
+                random.choice: list: tuple
+                        Random choice of valid empty neighbors to the chosen self perimeter hex.
+        """
         # From this self-perimeter hex, find empty neighbors. Check that these empty neighbors are not in a
         # "base" position (dogbone, 3_to_1, non-crux of Y, non-wart) based on their number of self-perimeter neighbors.
         empty_neighbors = []
@@ -385,6 +679,21 @@ class Amoeba:
         return random.choice(empty_neighbors)
 
     def get_farthest_perimeter_hex(self, center_hex):
+        """
+        Helper function to random_move(). Checks larger and larger concentric rings around a centerpoint.
+        Checks until the outer ring shows up empty for reduced_perimeter coordinates. Will only choose a fingertip
+        if only fingertips to choose from in the selected ring. Selects randomly from the larger half of the
+        valid list of rings.
+
+            **Parameters**
+                self
+                center_hex: tuple
+                        The hexagon being added to the amoeba.
+
+            **Returns**
+                random.choice: list: tuple
+                        Random choice from selected ring to be erased from the self in the new coordinates.
+        """
         # Keep checking concentric rings for self.reduced_perimeter coordinates until none are found.
         # The largest ring that still has reduced_perimeter coordinates should choose one at random if more than one,
         # but should not choose a fingertip if it's a tie. This will help keep the amoeba elongated.
@@ -435,12 +744,34 @@ class Amoeba:
         return random.choice(refined_ring_list)
 
     def is_valid_move(self, hxhy):
+        """
+        Checks if a move will hit another organism or go off the board.
+
+            **Parameters**
+                self
+                hxhy: tuple
+                        The hexagon being added to the amoeba.
+
+            **Returns**
+                True/False
+        """
         big_list = self.get_list_of_everything_besides_the_amoeba()
         if hxhy in big_list:
             return False
         return True
 
     def get_list_of_everything_besides_the_amoeba(self):
+        """
+        Helper function to is_valid_move(). Makes one big list containing the outer boundary fence
+        and the organisms besides the amoeba.
+
+            **Parameters**
+                self
+
+            **Returns**
+                big_list_of_hxhy: list: tuple
+                        List of hex coordinates for all organisms (besides the amoeba) and outer boundary fence.
+        """
         # Put the out of bounds and the ciliates in a list. Amoeba is indexed last in organisms list.
         big_list_of_hxhy = self.brd.out_of_bounds
         if self.brd.organisms is not None:
@@ -452,7 +783,22 @@ class Amoeba:
 
 
 class Neighbors2Hex:
+    """
+    Class object holds the neighboring hexagonal coordinates around a center point.
+    """
     def __init__(self, hxhy, brd):
+        """
+        Establishes pertinent self objects for use in the main program.
+
+            **Parameters**
+                hxhy: tuple
+                        Hexagonal coordinate pair of interest.
+                brd: Board
+                        Current interation of the Board
+
+            **Returns**
+                No return
+        """
         self.hxhy, self.board = hxhy, brd
         self.neighbors = self.get_neighs()
         self.up_left, self.up, self.up_right, self.low_right, self.down, self.low_left = (
@@ -460,6 +806,17 @@ class Neighbors2Hex:
             self.neighbors[3], self.neighbors[4], self.neighbors[5])
 
     def get_neighs(self):
+        """
+        Calculates coordinates of the 6 immediate neighboring cells.
+        Indexed in clockwise fashion. Starting from the upper-left.
+
+            **Parameters**
+                self
+
+            **Returns**
+                list: tuple
+                        List of hexagonal coordinates neighboring the center point.
+        """
         hxhy_up_left = (self.hxhy[0] - 1, self.hxhy[1])
         hxhy_up = (self.hxhy[0], self.hxhy[1] - 1)
         hxhy_up_right = (self.hxhy[0] + 1, self.hxhy[1] - 1)
@@ -470,6 +827,20 @@ class Neighbors2Hex:
 
 
 def get_ring(hxhy, r):
+    """
+    Given a center hexagon coordinate pair, return a list of hex coordinates carving a ring around that center
+    with a specified radius.
+
+        **Parameters**
+            hxhy: tuple
+                    Hexagonal coordinate pair defining the center of the ring.
+            r: int
+                    Radius of the ring to be carved.
+
+        **Returns**
+            list: ring_list
+                    List of hexagonal coordinate tuples defining the ring.
+    """
     # Use rotation method to make concentric hex rings
     ring_list = []
     for hy in range(0, -1 * r, -1):
@@ -489,6 +860,17 @@ def get_ring(hxhy, r):
 
 
 def initialize_4_ciliates(brd):
+    """
+    Establishes the colors and initial self coordinates of the 4 ciliates.
+
+        **Parameters**
+            brd: Board
+                    Custom empty Board object.
+
+        **Returns**
+            list: Ciliate
+                    List of initialized Ciliate organism objects.
+    """
     # Lay 4 ciliates, one in each corner, start with defined colors and center points
     rgb1, rgb2, rgb3, rgb4 = (0, 0, 0), (255, 0, 0), (0, 255, 0), (0, 0, 255)
     dist = 5
@@ -508,6 +890,19 @@ def initialize_4_ciliates(brd):
 
 
 def initialize_amoeba(radius, brd):
+    """
+    Establishes the color and initial self coordinates of the amoeba.
+
+        **Parameters**
+            radius: int
+                    Radius of the amoeba's initial blob conformation.
+            brd: Board
+                    Custom empty Board object.
+
+        **Returns**
+            Amoeba: Amoeba
+                    Initialized Amoeba object.
+    """
     # Center of amoeba at center of board
     rgb = (25, 255, 255)
     hxhy_list = [brd.midpoint]
@@ -518,6 +913,17 @@ def initialize_amoeba(radius, brd):
 
 
 def get_image_name(t):
+    """
+    Creates the name of the image for this time step.
+
+        **Parameters**
+            t: int
+                    Current time step.
+
+        **Returns**
+            str
+                    The name to be used for the image file.
+    """
     if 0 <= t <= 9:
         return '00' + str(t)
     elif 10 <= t <= 99:
@@ -530,6 +936,25 @@ def get_image_name(t):
 
 
 def run_simulation(t_max, hex_cnt, width, organisms, img_path):
+    """
+    Initializes the organisms onto the board and cycles through the time steps to
+    run the simulation. Saves the new board configuration at the end of each step.
+
+        **Parameters**
+            t_max: int
+                    Final time step. Should not exceed 999.
+            hex_cnt: int
+                    Number of hexagons across the diagonal of the board.
+            width: int
+                    Pixel width of a single hexagon.
+            organisms: list
+                    A list of custom organism class objects
+            img_path: str
+                    Complete folder pathway to where simulation images are saved to.
+
+        **Returns**
+            No return
+    """
     # Lay the organisms onto the board and save as first simulation step
     board = Board(hex_cnt, width, img_path + '000', organisms)
     board.save()
@@ -554,6 +979,19 @@ def run_simulation(t_max, hex_cnt, width, organisms, img_path):
 
 
 def make_video(img_path, fps):
+    """
+    Compiles simulation image outputs into a .mp4 video saved to the local working directory.
+    Deletes the image folder.
+
+        **Parameters**
+            img_path: str
+                    Complete folder pathway where the simulation images are.
+            fps: int
+                    Frames Per Second of the video being made.
+
+        **Returns**
+            No return
+    """
     # Compile the images into a video saved to the local directory, not the image path.
     image_files = [os.path.join(img_path, img) for img in os.listdir(img_path) if img.endswith(".png")]
     clip = MakeClip.ImageSequenceClip(image_files, fps=fps)
@@ -564,12 +1002,13 @@ def make_video(img_path, fps):
 
 if __name__ == "__main__":
     # Define the board by entering number of hexagons across the diagonal and the pixel width of each hexagon.
-    # Knobs: large simulation 120, 36, 10; small simulation 40, 23, 2
+    # Large simulation 120, 36, 10; Small simulation 40, 19, 2
     hex_count = 60
     pixel_width_of_hex = 19
     amoeba_radius = 5
     # Highest time step allowed is 999.
     max_time_steps = 999
+    # Must specify this folder pathway
     image_path = 'D:/SIMULATION PHOTOS/'
 
     # Initialize and save a blank board to a local folder
@@ -577,7 +1016,6 @@ if __name__ == "__main__":
     image_name = image_path + "_Blank Hex Board"
     blank_board = Board(hex_count, pixel_width_of_hex, image_name, organisms=None)
     blank_board.save()
-
     # Get initial list of organism objects
     collection_of_organisms = [*initialize_4_ciliates(blank_board), initialize_amoeba(amoeba_radius, blank_board)]
     # Run simulation over time steps
